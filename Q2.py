@@ -1,72 +1,180 @@
-import random
+import numpy as np
 import argparse
 import wandb
+from keras.datasets import fashion_mnist
 
+# Activation functions and their derivatives
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def sigmoid_derivative(x):
+    return x * (1 - x)
+
+def relu(x):
+    return np.maximum(0, x)
+
+def relu_derivative(x):
+    return (x > 0).astype(float)
+
+# Loss functions
+def cross_entropy_loss(y_true, y_pred):
+    epsilon = 1e-10  # To avoid log(0)
+    return -np.sum(y_true * np.log(y_pred + epsilon)) / len(y_true)
+
+def cross_entropy_derivative(y_true, y_pred):
+    return -(y_true / (y_pred + 1e-10))
+
+# Feedforward Neural Network
+class FeedforwardNeuralNetwork:
+    def __init__(self, input_size, hidden_layers, hidden_size, output_size, activation):
+        self.hidden_layers = hidden_layers
+        self.activation = activation
+        
+        # Initialize weights and biases
+        self.weights = []
+        self.biases = []
+        
+        # Input to first hidden layer
+        self.weights.append(np.random.randn(input_size, hidden_size) * 0.01)
+        self.biases.append(np.zeros((1, hidden_size)))
+        
+        # Hidden layers
+        for _ in range(hidden_layers - 1):
+            self.weights.append(np.random.randn(hidden_size, hidden_size) * 0.01)
+            self.biases.append(np.zeros((1, hidden_size)))
+        
+        # Last hidden layer to output
+        self.weights.append(np.random.randn(hidden_size, output_size) * 0.01)
+        self.biases.append(np.zeros((1, output_size)))
+
+    def activate(self, x):
+        if self.activation == "sigmoid":
+            return sigmoid(x)
+        elif self.activation == "ReLU":
+            return relu(x)
+
+    def activate_derivative(self, x):
+        if self.activation == "sigmoid":
+            return sigmoid_derivative(x)
+        elif self.activation == "ReLU":
+            return relu_derivative(x)
+
+    def forward(self, X):
+        self.a = []
+        self.z = []
+        
+        # Input layer
+        self.z.append(np.dot(X, self.weights[0]) + self.biases[0])
+        self.a.append(self.activate(self.z[0]))
+
+        # Hidden layers
+        for i in range(1, self.hidden_layers):
+            self.z.append(np.dot(self.a[i - 1], self.weights[i]) + self.biases[i])
+            self.a.append(self.activate(self.z[i]))
+
+        # Output layer (softmax)
+        self.z.append(np.dot(self.a[-1], self.weights[-1]) + self.biases[-1])
+        exp_vals = np.exp(self.z[-1] - np.max(self.z[-1], axis=1, keepdims=True))
+        self.a.append(exp_vals / np.sum(exp_vals, axis=1, keepdims=True))
+
+        return self.a[-1]
+
+    def backward(self, X, y, learning_rate):
+        m = X.shape[0]
+        d_weights = [None] * len(self.weights)
+        d_biases = [None] * len(self.biases)
+
+        # Output layer gradient
+        dz = cross_entropy_derivative(y, self.a[-1])
+        d_weights[-1] = np.dot(self.a[-2].T, dz) / m
+        d_biases[-1] = np.sum(dz, axis=0, keepdims=True) / m
+
+        # Backpropagate through hidden layers
+        for i in range(len(self.weights) - 2, 0, -1):
+            dz = np.dot(dz, self.weights[i + 1].T) * self.activate_derivative(self.a[i])
+            d_weights[i] = np.dot(self.a[i - 1].T, dz) / m
+            d_biases[i] = np.sum(dz, axis=0, keepdims=True) / m
+
+        # First hidden layer
+        dz = np.dot(dz, self.weights[1].T) * self.activate_derivative(self.a[0])
+        d_weights[0] = np.dot(X.T, dz) / m
+        d_biases[0] = np.sum(dz, axis=0, keepdims=True) / m
+
+        # Update weights and biases
+        for i in range(len(self.weights)):
+            self.weights[i] -= learning_rate * d_weights[i]
+            self.biases[i] -= learning_rate * d_biases[i]
+
+    def compute_accuracy(self, X, y_true):
+        y_pred = self.forward(X)
+        return np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_true, axis=1))
+
+# Training function
+def train_network(model, X_train, y_train, X_val, y_val, epochs, learning_rate):
+    for epoch in range(epochs):
+        model.forward(X_train)
+        model.backward(X_train, y_train, learning_rate)
+        
+        # Calculate metrics
+        train_loss = cross_entropy_loss(y_train, model.forward(X_train))
+        val_loss = cross_entropy_loss(y_val, model.forward(X_val))
+        train_acc = model.compute_accuracy(X_train, y_train)
+        val_acc = model.compute_accuracy(X_val, y_val)
+
+        # Log metrics to wandb
+        wandb.log({"train_loss": train_loss, "val_loss": val_loss, "train_accuracy": train_acc, "val_accuracy": val_acc})
+        
+        print(f"Epoch {epoch+1}: Train Loss={train_loss:.4f}, Train Acc={train_acc:.4f}, Val Loss={val_loss:.4f}, Val Acc={val_acc:.4f}")
+
+# Load Fashion-MNIST dataset
+def load_data():
+    (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
+    
+    # Normalize and reshape
+    X_train, X_test = X_train / 255.0, X_test / 255.0
+    X_train, X_test = X_train.reshape(X_train.shape[0], -1), X_test.reshape(X_test.shape[0], -1)
+
+    # One-hot encode labels
+    y_train_onehot = np.eye(10)[y_train]
+    y_test_onehot = np.eye(10)[y_test]
+    
+    return X_train, y_train_onehot, X_test, y_test_onehot
+
+# Main function
 def main(args):
-    print("Arguments received:")
-    for arg, value in vars(args).items():
-        if value is not None:  # Only print arguments that were provided
-            print(f"{arg}: {value}")
+    wandb.init(
+        entity=args.wandb_entity,
+        project=args.wandb_project,
+        config=vars(args),
+    )
+
+    # Load dataset
+    X_train, y_train, X_val, y_val = load_data()
+    
+    # Initialize model
+    model = FeedforwardNeuralNetwork(
+        input_size=784,
+        hidden_layers=args.num_layers,
+        hidden_size=args.hidden_size,
+        output_size=10,
+        activation=args.activation,
+    )
+
+    # Train model
+    train_network(model, X_train, y_train, X_val, y_val, args.epochs, args.learning_rate)
+
+    # Finish wandb logging
+    wandb.finish()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a neural network with customizable hyperparameters.")
-
-    # WandB arguments
-    parser.add_argument("-wp", "--wandb_project", type=str, default="DA6401-Assignment 1-CE21B097", help="Project name used to track experiments in Weights & Biases dashboard")
-    parser.add_argument("-we", "--wandb_entity", type=str, default="ce21b097-indian-institute-of-technology-madras", help="WandB entity used to track experiments in Weights & Biases dashboard")
-
-    # Dataset
-    parser.add_argument("-d", "--dataset", type=str, choices=["mnist", "fashion_mnist"], default="fashion_mnist", help="Dataset to be used")
-
-    # Training parameters
-    parser.add_argument("-e", "--epochs", type=int, default=1, help="Number of epochs to train neural network")
-    parser.add_argument("-b", "--batch_size", type=int, default=4, help="Batch size used to train neural network")
-
-    # Loss and Optimizer
-    parser.add_argument("-l", "--loss", type=str, choices=["mean_squared_error", "cross_entropy"], default="cross_entropy", help="Loss function to be used")
-    parser.add_argument("-o", "--optimizer", type=str, choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"], default="sgd", help="Optimizer to be used")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-wp", "--wandb_project", type=str, default="DA6401-Assignment 1-CE21B097")
+    parser.add_argument("-we", "--wandb_entity", type=str, default="ce21b097-indian-institute-of-technology-madras")
+    parser.add_argument("-e", "--epochs", type=int, default=10)
+    parser.add_argument("-lr", "--learning_rate", type=float, default=0.01)
+    parser.add_argument("-nhl", "--num_layers", type=int, default=1)
+    parser.add_argument("-sz", "--hidden_size", type=int, default=4)
+    parser.add_argument("-a", "--activation", type=str, choices=["sigmoid", "ReLU"], default="ReLU")
     
-    # Learning rate and optimization parameters
-    parser.add_argument("-lr", "--learning_rate", type=float, default=0.1, help="Learning rate used to optimize model parameters")
-    parser.add_argument("-m", "--momentum", type=float, default=0.5, help="Momentum used by momentum and nag optimizers")
-    parser.add_argument("-beta", "--beta", type=float, default=0.5, help="Beta used by RMSProp optimizer")
-    parser.add_argument("-beta1", "--beta1", type=float, default=0.5, help="Beta1 used by Adam and Nadam optimizers")
-    parser.add_argument("-beta2", "--beta2", type=float, default=0.5, help="Beta2 used by Adam and Nadam optimizers")
-    parser.add_argument("-eps", "--epsilon", type=float, default=0.000001, help="Epsilon used by optimizers")
-    parser.add_argument("-w_d", "--weight_decay", type=float, default=0.0, help="Weight decay used by optimizers")
-
-    # Network architecture
-    parser.add_argument("-w_i", "--weight_init", type=str, choices=["random", "Xavier"], default="random", help="Weight initialization method")
-    parser.add_argument("-nhl", "--num_layers", type=int, default=1, help="Number of hidden layers in the feedforward neural network")
-    parser.add_argument("-sz", "--hidden_size", type=int, default=4, help="Number of hidden neurons in a feedforward layer")
-    parser.add_argument("-a", "--activation", type=str, choices=["identity", "sigmoid", "tanh", "ReLU"], default="sigmoid", help="Activation function for hidden layers")
-
     args = parser.parse_args()
     main(args)
-
-# Initialize wandb run
-run = wandb.init(
-    entity="ce21b097-indian-institute-of-technology-madras",
-    project="DA6401-Assignment 1-CE21B097",
-    config={
-        "architecture": "Feedforward Neural Network",  # Updated architecture
-        "dataset": args.dataset if args.dataset else "fashion_mnist",  # Default to fashion_mnist
-        "epochs": args.epochs if args.epochs else 10,  # Default to 10 epochs
-        "batch_size": args.batch_size if args.batch_size else 4,  # Default to 4
-        "learning_rate": args.learning_rate if args.learning_rate else 0.02,  # Default to 0.02
-        "optimizer": args.optimizer if args.optimizer else "sgd",  # Default to SGD
-        "loss_function": args.loss if args.loss else "cross_entropy",  # Default to cross-entropy
-        "num_layers": args.num_layers if args.num_layers else 1,  # Default to 1 hidden layer
-        "hidden_size": args.hidden_size if args.hidden_size else 4,  # Default to 4 neurons per layer
-        "activation": args.activation if args.activation else "sigmoid",  # Default to sigmoid
-    },
-)
-
-# Log all parameters to wandb
-wandb.config.update(vars(args))
-
-## Neural network training here ##
-
-
-# Finish the run and upload any remaining data.
-run.finish()
