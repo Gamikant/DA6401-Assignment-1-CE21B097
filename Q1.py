@@ -5,7 +5,8 @@ from keras.datasets import fashion_mnist
 # Initialize wandb run
 wandb.init(
     entity="ce21b097-indian-institute-of-technology-madras",
-    project="DA6401-Assignment 1-CE21B097"  # Replace with your W&B username/team
+    project="DA6401-Assignment 1-CE21B097",
+    name = "Assignment "  # Replace with your W&B username/team
     )
 
 # Load Fashion-MNIST dataset
