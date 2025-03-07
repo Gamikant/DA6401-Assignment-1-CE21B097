@@ -103,6 +103,20 @@ class FeedforwardNeuralNetwork:
                 self.weights[i] -= self.lr * grads_w[i]
                 self.biases[i] -= self.lr * grads_b[i]
 
+            elif self.optimizer == "nag":  
+                lookahead_w = self.weights[i] + self.momentum * self.v_w[i]
+                lookahead_b = self.biases[i] + self.momentum * self.v_b[i]
+
+                self.weights[i] = lookahead_w  # Temporarily set weights to lookahead
+                self.biases[i] = lookahead_b  
+                self.forward(self.a[0])  # Forward pass to get gradients
+                grads_w, grads_b = self.backward(self.a[0], self.a[-1])
+
+                self.v_w[i] = self.momentum * self.v_w[i] - self.lr * grads_w[i]
+                self.v_b[i] = self.momentum * self.v_b[i] - self.lr * grads_b[i]
+                self.weights[i] += self.v_w[i]
+                self.biases[i] += self.v_b[i]
+
             elif self.optimizer == "momentum":
                 self.v_w[i] = self.momentum * self.v_w[i] - self.lr * grads_w[i]
                 self.v_b[i] = self.momentum * self.v_b[i] - self.lr * grads_b[i]
@@ -123,6 +137,18 @@ class FeedforwardNeuralNetwork:
                 self.weights[i] -= self.lr * m_w_hat / (np.sqrt(v_w_hat) + self.epsilon)
 
     def train(self, X_train, y_train, X_test, y_test, epochs):
+        wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            config={
+                "optimizer": self.optimizer,
+                "learning_rate": self.lr,
+                "batch_size": self.batch_size,
+                "epochs": epochs,
+                "hidden_layers": self.hidden_layers,
+                "hidden_size": len(self.weights[0][0])
+            }
+        )
         for epoch in range(epochs):
             for i in range(0, X_train.shape[0], self.batch_size):
                 X_batch, y_batch = X_train[i:i+self.batch_size], y_train[i:i+self.batch_size]
@@ -147,7 +173,9 @@ class FeedforwardNeuralNetwork:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-e", "--epochs", type=int, default=1)
+    parser.add_argument("-wp", "--wandb_project", type=str, default="DA6401-Assignment 1-CE21B097")
+    parser.add_argument("-we", "--wandb_entity", type=str, default="ce21b097-indian-institute-of-technology-madras")
+    parser.add_argument("-e", "--epochs", type=int, default=10)
     parser.add_argument("-b", "--batch_size", type=int, default=4)
     parser.add_argument("-lr", "--learning_rate", type=float, default=0.1)
     parser.add_argument("-o", "--optimizer", type=str, default="sgd", choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
