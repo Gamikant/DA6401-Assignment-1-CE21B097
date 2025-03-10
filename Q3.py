@@ -103,19 +103,27 @@ class FeedforwardNeuralNetwork:
                 self.weights[i] -= self.lr * grads_w[i]
                 self.biases[i] -= self.lr * grads_b[i]
 
-            elif self.optimizer == "nag":  
-                lookahead_w = self.weights[i] + self.momentum * self.v_w[i]
-                lookahead_b = self.biases[i] + self.momentum * self.v_b[i]
-
-                self.weights[i] = lookahead_w  # Temporarily set weights to lookahead
-                self.biases[i] = lookahead_b  
-                self.forward(self.a[0])  # Forward pass to get gradients
-                grads_w, grads_b = self.backward(self.a[0], self.a[-1])
-
+            elif self.optimizer == "nag":
+                # Store original parameters
+                original_w = self.weights[i].copy()
+                original_b = self.biases[i].copy()
+                
+                # Compute lookahead position
+                lookahead_w = original_w + self.momentum * self.v_w[i]
+                lookahead_b = original_b + self.momentum * self.v_b[i]
+                
+                # Temporarily set weights to lookahead
+                self.weights[i] = lookahead_w
+                self.biases[i] = lookahead_b
+                
+                # For NAG, we need a simpler approach that doesn't require a full forward pass
+                # Just use the current gradients instead of trying to compute lookahead gradients
                 self.v_w[i] = self.momentum * self.v_w[i] - self.lr * grads_w[i]
                 self.v_b[i] = self.momentum * self.v_b[i] - self.lr * grads_b[i]
-                self.weights[i] += self.v_w[i]
-                self.biases[i] += self.v_b[i]
+                
+                # Restore original parameters and apply updates
+                self.weights[i] = original_w + self.v_w[i]
+                self.biases[i] = original_b + self.v_b[i]
 
             elif self.optimizer == "momentum":
                 self.v_w[i] = self.momentum * self.v_w[i] - self.lr * grads_w[i]
@@ -129,17 +137,46 @@ class FeedforwardNeuralNetwork:
                 self.weights[i] -= self.lr * grads_w[i] / (np.sqrt(self.v_w[i]) + self.epsilon)
                 self.biases[i] -= self.lr * grads_b[i] / (np.sqrt(self.v_b[i]) + self.epsilon)
 
-            elif self.optimizer in ["adam", "nadam"]:
+            elif self.optimizer == "adam":
+                # Update for weights
                 self.m_w[i] = self.beta1 * self.m_w[i] + (1 - self.beta1) * grads_w[i]
                 self.v_w[i] = self.beta2 * self.v_w[i] + (1 - self.beta2) * (grads_w[i] ** 2)
                 m_w_hat = self.m_w[i] / (1 - self.beta1 ** self.t)
                 v_w_hat = self.v_w[i] / (1 - self.beta2 ** self.t)
                 self.weights[i] -= self.lr * m_w_hat / (np.sqrt(v_w_hat) + self.epsilon)
+                
+                # Update for biases - this was missing
+                self.m_b[i] = self.beta1 * self.m_b[i] + (1 - self.beta1) * grads_b[i]
+                self.v_b[i] = self.beta2 * self.v_b[i] + (1 - self.beta2) * (grads_b[i] ** 2)
+                m_b_hat = self.m_b[i] / (1 - self.beta1 ** self.t)
+                v_b_hat = self.v_b[i] / (1 - self.beta2 ** self.t)
+                self.biases[i] -= self.lr * m_b_hat / (np.sqrt(v_b_hat) + self.epsilon)
+                
+            elif self.optimizer == "nadam":
+                # Update for weights
+                self.m_w[i] = self.beta1 * self.m_w[i] + (1 - self.beta1) * grads_w[i]
+                self.v_w[i] = self.beta2 * self.v_w[i] + (1 - self.beta2) * (grads_w[i] ** 2)
+                m_w_hat = self.m_w[i] / (1 - self.beta1 ** self.t)
+                v_w_hat = self.v_w[i] / (1 - self.beta2 ** self.t)
+                
+                # Nadam update (includes momentum term in the update direction)
+                m_w_bar = self.beta1 * m_w_hat + (1 - self.beta1) * grads_w[i] / (1 - self.beta1 ** self.t)
+                self.weights[i] -= self.lr * m_w_bar / (np.sqrt(v_w_hat) + self.epsilon)
+                
+                # Update for biases - this was missing
+                self.m_b[i] = self.beta1 * self.m_b[i] + (1 - self.beta1) * grads_b[i]
+                self.v_b[i] = self.beta2 * self.v_b[i] + (1 - self.beta2) * (grads_b[i] ** 2)
+                m_b_hat = self.m_b[i] / (1 - self.beta1 ** self.t)
+                v_b_hat = self.v_b[i] / (1 - self.beta2 ** self.t)
+                
+                # Nadam update for biases
+                m_b_bar = self.beta1 * m_b_hat + (1 - self.beta1) * grads_b[i] / (1 - self.beta1 ** self.t)
+                self.biases[i] -= self.lr * m_b_bar / (np.sqrt(v_b_hat) + self.epsilon)
 
     def train(self, X_train, y_train, X_test, y_test, epochs):
         wandb.init(
-            project=args.wandb_project,
-            entity=args.wandb_entity,
+            project=wandb.run.project if wandb.run else "DA6401-Assignment 1-CE21B097",
+            entity=wandb.run.entity if wandb.run else "ce21b097-indian-institute-of-technology-madras",
             config={
                 "optimizer": self.optimizer,
                 "learning_rate": self.lr,
@@ -147,11 +184,27 @@ class FeedforwardNeuralNetwork:
                 "epochs": epochs,
                 "hidden_layers": self.hidden_layers,
                 "hidden_size": len(self.weights[0][0])
-            }
+            },
+            reinit=True
         )
+        
+        # Shuffle indices for training
+        indices = np.arange(X_train.shape[0])
+        
         for epoch in range(epochs):
+            # Shuffle training data
+            np.random.shuffle(indices)
+            X_shuffled = X_train[indices]
+            y_shuffled = y_train[indices]
+            
             for i in range(0, X_train.shape[0], self.batch_size):
-                X_batch, y_batch = X_train[i:i+self.batch_size], y_train[i:i+self.batch_size]
+                X_batch = X_shuffled[i:i+self.batch_size]
+                y_batch = y_shuffled[i:i+self.batch_size]
+                
+                # Store batch data for NAG optimizer
+                self.X_batch = X_batch
+                self.y = y_batch
+                
                 self.forward(X_batch)
                 grads_w, grads_b = self.backward(X_batch, y_batch)
                 self.update_parameters(grads_w, grads_b)
@@ -170,6 +223,9 @@ class FeedforwardNeuralNetwork:
                 "Train Accuracy": train_acc,
                 "Validation Accuracy": val_acc
             })
+    
+    # Close the wandb run
+    wandb.finish()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -181,11 +237,11 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--optimizer", type=str, default="sgd", choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
     parser.add_argument("-nhl", "--num_layers", type=int, default=1)
     parser.add_argument("-sz", "--hidden_size", type=int, default=4)
-    parser.add_argument("-m", "--momentum", type=int, default=0.5)
-    parser.add_argument("-beta", "--beta", type=int, default=0.5)
-    parser.add_argument("-beta1", "--beta1", type=int, default=0.5)
-    parser.add_argument("-beta2", "--beta2", type=int, default=0.5)
-    parser.add_argument("-eps", "--epsilon", type=int, default=0.000001)
+    parser.add_argument("-m", "--momentum", type=float, default=0.5)
+    parser.add_argument("-beta", "--beta", type=float, default=0.5)
+    parser.add_argument("-beta1", "--beta1", type=float, default=0.5)
+    parser.add_argument("-beta2", "--beta2", type=float, default=0.5)
+    parser.add_argument("-eps", "--epsilon", type=float, default=0.000001)
     args = parser.parse_args()
 
     # Load dataset

@@ -162,12 +162,14 @@ class FeedforwardNeuralNetwork:
                 self.weights[i] = lookahead_w
                 self.biases[i] = lookahead_b
                 
-                # Compute gradients at lookahead position
-                # Note: This is a simplified approach. In practice, you'd need to
-                # compute gradients for all layers at the lookahead position.
-                X_batch = self.a[0]  # Input data
-                y_batch = self.y     # Target data (you need to store this)
-                self.forward(X_batch)
+                # Use the original input data, not the activation
+                # This is the key fix - we need to use the original X_batch, not self.a[0]
+                X_batch = self.X_batch  # You need to store this in train method
+                y_batch = self.y        # Target data
+                
+                # We need to do a complete forward pass from the original input
+                # Not just from the current layer
+                output = self.forward(X_batch)
                 lookahead_grads_w, lookahead_grads_b = self.backward(X_batch, y_batch)
                 
                 # Restore original parameters
@@ -181,6 +183,7 @@ class FeedforwardNeuralNetwork:
                 # Apply updates
                 self.weights[i] += self.v_w[i]
                 self.biases[i] += self.v_b[i]
+
 
             elif self.optimizer == "momentum":
                 self.v_w[i] = self.momentum * self.v_w[i] - self.lr * grads_w[i]
