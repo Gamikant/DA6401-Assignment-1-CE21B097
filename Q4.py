@@ -3,7 +3,7 @@ import argparse
 import wandb
 from keras.datasets import fashion_mnist
 import os
-import pickle
+import json
 
 fashion_mnist_classes = [
     "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
@@ -312,7 +312,7 @@ def train_sweep():
         config = wandb.config
 
         # Create descriptive name
-        run_name = f"hl_{config.hidden_layers}_sz_{config.hidden_size}_bs_{config.batch_size}_opt_{config.optimizer}_act_{config.activation}_wi_{config.weight_initialization}"
+        run_name = f"hl_{config.hidden_layers}_sz_{config.hidden_size}_bs_{config.batch_size}_opt_{config.optimizer}_act_{config.activation}_wi_{config.weight_initialization}_ep_{config.epochs}_wd_{config.weight_decay}_lr_{config.learning_rate}"
         wandb.run.name = run_name
         wandb.run.save()
         
@@ -335,7 +335,23 @@ def train_sweep():
         
         # Train the model
         model.train(X_train, y_train, X_test, y_test, config.epochs)
-
+        best_val_accs = [0.0]
+        val_acc = model.compute_accuracy(X_test, y_test)
+        best_val_accs.append(val_acc)
+        if best_val_accs[-1] >= best_val_accs[-2]:
+            best_config = {
+                            'epochs': config.epochs,
+                            'hidden_layers': config.hidden_layers,
+                            'hidden_size': config.hidden_size,
+                            'weight_decay': config.weight_decay,
+                            'learning_rate': config.learning_rate,
+                            'optimizer': config.optimizer,
+                            'batch_size': config.batch_size,
+                            'weight_initialization': config.weight_initialization,
+                            'activation': config.activation
+                          }
+            with open('best_hyperparamters.json', 'w') as f:
+                json.dump(best_config, f)
 
 # Sweep Config
 sweep_config = {
@@ -378,11 +394,13 @@ if __name__ == "__main__":
     parser.add_argument("-beta2", "--beta2", type=float, default=0.5)
     parser.add_argument("-eps", "--epsilon", type=float, default=0.000001)
     parser.add_argument("-run_sweep", "--run_sweep", action="store_true", help="Run hyperparameter sweep")
+    parser.add_argument("-cnt", "--count", type=int, default = 20)
+
     args = parser.parse_args()
 
     if args.run_sweep:
         sweep_id = wandb.sweep(sweep_config, project=args.wandb_project, entity=args.wandb_entity)
-        wandb.agent(sweep_id, function=train_sweep, count=20)
+        wandb.agent(sweep_id, function=train_sweep, count=args.count)
 
     else:
         # Load dataset
