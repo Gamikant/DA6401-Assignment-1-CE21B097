@@ -1,7 +1,7 @@
 # DA6401 Assignment 1: Neural Network Implementation
 
-Repository: https://github.com/Gamikant/DA6401-Assignment-1-CE21B097 /n
-wanb report: https://wandb.ai/ce21b097-indian-institute-of-technology-madras/DA6401-Assignment%201-CE21B097/reports/CE21B097-DA6401-Assignment-1--VmlldzoxMTgxNzM0OQ?accessToken=80bfjm0sg1ranwlhzrl80liemonsjf0xrd2y3joj22hj13zbuc9sulae7x6jtsmn /n
+Repository: https://github.com/Gamikant/DA6401-Assignment-1-CE21B097 \
+wanb report: https://wandb.ai/ce21b097-indian-institute-of-technology-madras/DA6401-Assignment%201-CE21B097/reports/CE21B097-DA6401-Assignment-1--VmlldzoxMTgxNzM0OQ?accessToken=80bfjm0sg1ranwlhzrl80liemonsjf0xrd2y3joj22hj13zbuc9sulae7x6jtsmn \
 This repository contains a custom implementation of a feedforward neural network for image classification on the Fashion-MNIST and MNIST datasets.
 
 ## Project Structure
