@@ -84,11 +84,6 @@ if __name__ == "__main__":
     y_true_indices = np.argmax(y_test, axis=1)
     y_pred_indices = np.argmax(y_pred, axis=1)
 
-    # # Create confusion matrix manually
-    # cm = np.zeros((10, 10), dtype=int)
-    # for i, j in zip(y_true_indices, y_pred_indices):
-    #     cm[i, j] += 1
-
     # Start a new wandb run for the confusion matrix
     with wandb.init(project=args.wandb_project, entity=args.wandb_entity, name="confusion_matrix") as run:
         # Use wandb.plots.HeatMap instead of confusion_matrix

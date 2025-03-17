@@ -2,32 +2,29 @@ import numpy as np
 import wandb
 from keras.datasets import fashion_mnist
 
-# Initialize wandb run
+# Initializing wandb project where the experiment tracking will be done
 wandb.init(
     entity="ce21b097-indian-institute-of-technology-madras",
     project="DA6401-Assignment 1-CE21B097",
-    name = "Assignment "  # Replace with your W&B username/team
+    name = "Question 1 " 
     )
 
-# Load Fashion-MNIST dataset
+# Loading fashion_mnist data
 (train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
 
-# Class labels in Fashion-MNIST
 class_names = [
     "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
     "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"
 ]
 
-# Select one sample image for each class
+# Displaying 1 image from each class
 sample_images = []
-for i in range(10):  # 10 classes
-    idx = np.where(train_labels == i)[0][0]  # Get first occurrence of class 'i'
+for i in range(10): 
+    idx = np.where(train_labels == i)[0][0]
     sample_images.append(train_images[idx])
 
-# Log images to W&B
 wandb_images = [wandb.Image(img, caption=class_names[i]) for i, img in enumerate(sample_images)]
 wandb.log({"Fashion-MNIST Samples": wandb_images})
 
-# Close the wandb run
 wandb.finish()
 

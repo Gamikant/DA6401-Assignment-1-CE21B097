@@ -16,26 +16,25 @@ fashion_mnist_classes = [
     "Ankle boot"     # 9
 ]
 
-# Activation functions and their derivatives
+# Sigmoid activation and its derivative 
 def sigmoid_neuron(x):
     return 1 / (1 + np.exp(-x))
 
 def categorical_crossentropy(y_true, y_pred, epsilon=1e-12):
 
-    y_pred = np.clip(y_pred, epsilon, 1.0 - epsilon)  # Avoid log(0)
-    loss = -np.sum(y_true * np.log(y_pred), axis=1)  # Compute loss per sample
-    return np.mean(loss)  # Return mean loss over batch
+    y_pred = np.clip(y_pred, epsilon, 1.0 - epsilon)  # To avoid divsion by zero error.
+    loss = -np.sum(y_true * np.log(y_pred), axis=1) 
+    return np.mean(loss) 
 
-# Feedforward Neural Network
 class SimpleFeedforwardNeuralNetwork:
     def __init__(self, input_size, hidden_layers, hidden_size, output_size):
         self.hidden_layers = hidden_layers
         
-        # Initialize weights and biases
+        # Initializing weights and biases
         self.weights = []
         self.biases = []
         
-        # Input to first hidden layer
+        # Input layer
         self.weights.append(np.random.randn(input_size, hidden_size) * 0.01)
         self.biases.append(np.random.randn(1, hidden_size))
         
@@ -44,7 +43,7 @@ class SimpleFeedforwardNeuralNetwork:
             self.weights.append(np.random.randn(hidden_size, hidden_size) * 0.01)
             self.biases.append(np.random.randn(1, hidden_size))
         
-        # Last hidden layer to output
+        # Output layer
         self.weights.append(np.random.randn(hidden_size, output_size) * 0.01)
         self.biases.append(np.random.randn(1, output_size))
 
@@ -75,7 +74,6 @@ class SimpleFeedforwardNeuralNetwork:
         y_pred = self.forward(X)
         return np.mean(np.argmax(y_pred) == np.argmax(y_true))
 
-# Training function
 def feed_forward_network(model, X, y, X_raw):
     examples = args.examples
     table = wandb.Table(columns=["Image", "Predicted Class", "Probabilities"])
@@ -121,6 +119,7 @@ def main(args):
         entity=args.wandb_entity,
         project=args.wandb_project,
         config=vars(args),
+        name = "Question 2"
     )
 
     # Load dataset

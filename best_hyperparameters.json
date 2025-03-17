@@ -1,1 +1,1 @@
-{"epochs": 10, "hidden_layers": 4, "hidden_size": 32, "weight_decay": 0, "learning_rate": 0.0001, "optimizer": "nadam", "batch_size": 16, "weight_initialization": "Xavier", "activation": "tanh"}
+{"epochs": 20, "hidden_layers": 3, "hidden_size": 128, "weight_decay": 0.0005, "learning_rate": 0.001, "optimizer": "adam", "batch_size": 16, "weight_initialization": "Xavier", "activation": "sigmoid"}

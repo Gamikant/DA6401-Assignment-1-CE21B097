@@ -355,7 +355,7 @@ def train_sweep():
         best_val_accs = [0.0]
         val_acc = model.compute_accuracy(X_val, y_val)
         best_val_accs.append(val_acc)
-        if best_val_accs[-1] >= best_val_accs[-2]:
+        if best_val_accs[-1] >= max(best_val_accs):
             best_config = {
                             'epochs': config.epochs,
                             'hidden_layers': config.hidden_layers,
