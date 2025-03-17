@@ -96,7 +96,7 @@ class FeedforwardNeuralNetwork:
         return grads_w, grads_b
 
     def update_parameters(self, grads_w, grads_b):
-        self.t += 1  # Update step count
+        self.t += 1
 
         for i in range(len(self.weights)):
             if self.optimizer == "sgd":
@@ -104,19 +104,15 @@ class FeedforwardNeuralNetwork:
                 self.biases[i] -= self.lr * grads_b[i]
 
             elif self.optimizer == "nag":
-                # Store original parameters
                 original_w = self.weights[i].copy()
                 original_b = self.biases[i].copy()
                 
-                # Compute lookahead position
                 lookahead_w = original_w + self.momentum * self.v_w[i]
                 lookahead_b = original_b + self.momentum * self.v_b[i]
                 
-                # Temporarily set weights to lookahead
                 self.weights[i] = lookahead_w
                 self.biases[i] = lookahead_b
                 
-                # For NAG, we need a simpler approach that doesn't require a full forward pass
                 # Just use the current gradients instead of trying to compute lookahead gradients
                 self.v_w[i] = self.momentum * self.v_w[i] - self.lr * grads_w[i]
                 self.v_b[i] = self.momentum * self.v_b[i] - self.lr * grads_b[i]

@@ -1,7 +1,7 @@
 import numpy as np
 import argparse
 import wandb
-from keras.datasets import fashion_mnist
+from keras.datasets import fashion_mnist, mnist
 import os
 import json
 
@@ -301,7 +301,10 @@ def train_sweep():
         wandb.run.name = run_name
         wandb.run.save()
         
-        (X_train_full, y_train_full), (X_test, y_test) = fashion_mnist.load_data()
+        if args.dataset == "mnist":
+            (X_train_full, y_train_full), (X_test, y_test) = mnist.load_data()
+        else:
+            (X_train_full, y_train_full), (X_test, y_test) = fashion_mnist.load_data()
 
         val_size = 6000  # 10% of 60,000
 
@@ -376,13 +379,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-wp", "--wandb_project", type=str, default="DA6401-Assignment 1-CE21B097")
     parser.add_argument("-we", "--wandb_entity", type=str, default="ce21b097-indian-institute-of-technology-madras")
-    parser.add_argument("-e", "--epochs", type=int, default=10)
-    parser.add_argument("-b", "--batch_size", type=int, default=4)
-    parser.add_argument("-lr", "--learning_rate", type=float, default=0.1)
-    parser.add_argument("-a", "--activation", type=str, default="sigmoid", choices = ["sigmoid", "tanh", "relu"])  
-    parser.add_argument("-o", "--optimizer", type=str, default="sgd", choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
-    parser.add_argument("-nhl", "--num_layers", type=int, default=1)
-    parser.add_argument("-sz", "--hidden_size", type=int, default=4)
+    parser.add_argument("-d", "--dataset", type=str, default = "fashion_mnist", choices = ["fashion_mnist", "mnist"])
+    parser.add_argument("-e", "--epochs", type=int, default=20)
+    parser.add_argument("-b", "--batch_size", type=int, default=32)
+    parser.add_argument("-lr", "--learning_rate", type=float, default=0.001)
+    parser.add_argument("-a", "--activation", type=str, default="relu", choices = ["sigmoid", "tanh", "relu"])  
+    parser.add_argument("-o", "--optimizer", type=str, default="nadam", choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
+    parser.add_argument("-nhl", "--num_layers", type=int, default=3)
+    parser.add_argument("-sz", "--hidden_size", type=int, default=128)
     parser.add_argument("-m", "--momentum", type=float, default=0.9)
     parser.add_argument("-beta", "--beta", type=float, default=0.9)
     parser.add_argument("-beta1", "--beta1", type=float, default=0.99)
@@ -400,7 +404,10 @@ if __name__ == "__main__":
         wandb.agent(sweep_id, function=train_sweep, count=args.count)
 
     else:
-        (X_train_full, y_train_full), (X_test, y_test) = fashion_mnist.load_data()
+        if args.dataset == "mnist":
+            (X_train_full, y_train_full), (X_test, y_test) = mnist.load_data()
+        else:
+            (X_train_full, y_train_full), (X_test, y_test) = fashion_mnist.load_data()
 
         val_size = 6000  # 10% of 60,000
 
