@@ -2,6 +2,8 @@ import numpy as np
 import argparse
 import wandb
 from keras.datasets import fashion_mnist
+import os
+import pickle
 
 fashion_mnist_classes = [
     "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
@@ -92,11 +94,25 @@ class FeedforwardNeuralNetwork:
         self.a, self.z = [], []
 
         self.z.append(np.dot(X, self.weights[0]) + self.biases[0])
-        self.a.append(sigmoid(self.z[0]))
+        
+        # Use the specified activation function
+        if self.activation == "sigmoid":
+            self.a.append(sigmoid(self.z[0]))
+        elif self.activation == "relu":
+            self.a.append(relu(self.z[0]))
+        elif self.activation == "tanh":
+            self.a.append(tanh(self.z[0]))
 
         for i in range(1, self.hidden_layers):
             self.z.append(np.dot(self.a[i - 1], self.weights[i]) + self.biases[i])
-            self.a.append(sigmoid(self.z[i]))
+            
+            # Use the specified activation function
+            if self.activation == "sigmoid":
+                self.a.append(sigmoid(self.z[i]))
+            elif self.activation == "relu":
+                self.a.append(relu(self.z[i]))
+            elif self.activation == "tanh":
+                self.a.append(tanh(self.z[i]))
 
         self.z.append(np.dot(self.a[-1], self.weights[-1]) + self.biases[-1])
         self.a.append(softmax(self.z[-1]))
@@ -265,6 +281,7 @@ class FeedforwardNeuralNetwork:
                 y_batch = y_shuffled[i:i+self.batch_size]
                 
                 # Store target data for NAG optimizer
+                self.X_batch = X_batch
                 self.y = y_batch
                 
                 self.forward(X_batch)
@@ -293,6 +310,11 @@ def train_sweep():
     # Initialize a new wandb run with config from sweep controller
     with wandb.init() as run:
         config = wandb.config
+
+        # Create descriptive name
+        run_name = f"hl_{config.hidden_layers}_sz_{config.hidden_size}_bs_{config.batch_size}_opt_{config.optimizer}_act_{config.activation}_wi_{config.weight_initialization}"
+        wandb.run.name = run_name
+        wandb.run.save()
         
         # Load dataset
         (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
@@ -314,15 +336,20 @@ def train_sweep():
         # Train the model
         model.train(X_train, y_train, X_test, y_test, config.epochs)
 
+
 # Sweep Config
 sweep_config = {
-    'method': 'random',
+    'method': 'bayes',
     'metric': {
         'name': 'Validation Accuracy',
         'goal': 'maximize'
     },
+    'early_terminate': {
+        'type': 'hyperband',
+        'min_iter': 3
+    },
     'parameters': {
-        'epochs': {'values': [5, 10]},
+        'epochs': {'values': [10, 20]},
         'hidden_layers': {'values': [3, 4, 5]},
         'hidden_size': {'values': [32, 64, 128]},
         'weight_decay': {'values': [0, 0.0005, 0.5]},
@@ -354,10 +381,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.run_sweep:
-        # Initialize the sweep
         sweep_id = wandb.sweep(sweep_config, project=args.wandb_project, entity=args.wandb_entity)
-        # Start the sweep agent
-        wandb.agent(sweep_id, function=train_sweep, count=10)
+        wandb.agent(sweep_id, function=train_sweep, count=20)
+
     else:
         # Load dataset
         (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
@@ -388,5 +414,3 @@ if __name__ == "__main__":
             config=config
         )
         model.train(X_train, y_train, X_test, y_test, args.epochs)
-
-
