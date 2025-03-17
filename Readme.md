@@ -1,9 +1,3 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" class="logo" width="120"/>
-
-# 
-
----
-
 # DA6401 Assignment 1: Neural Network Implementation
 
 Repository: https://github.com/Gamikant/DA6401-Assignment-1-CE21B097
