@@ -316,10 +316,27 @@ def train_sweep():
         wandb.run.name = run_name
         wandb.run.save()
         
-        # Load dataset
-        (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
-        X_train, X_test = X_train.reshape(X_train.shape[0], -1) / 255.0, X_test.reshape(X_test.shape[0], -1) / 255.0
-        y_train, y_test = np.eye(10)[y_train], np.eye(10)[y_test]
+        # Load the original train/test split
+        (X_train_full, y_train_full), (X_test, y_test) = fashion_mnist.load_data()
+
+        # Define the validation set size (e.g., 10% of the training data)
+        val_size = 6000  # 10% of 60,000
+
+        # Split the training data into training and validation sets
+        X_train = X_train_full[:-val_size]
+        y_train = y_train_full[:-val_size]
+        X_val = X_train_full[-val_size:]
+        y_val = y_train_full[-val_size:]
+
+        # Reshape and normalize
+        X_train = X_train.reshape(X_train.shape[0], -1) / 255.0
+        X_val = X_val.reshape(X_val.shape[0], -1) / 255.0
+        X_test = X_test.reshape(X_test.shape[0], -1) / 255.0
+
+        # One-hot encode the labels
+        y_train = np.eye(10)[y_train]
+        y_val = np.eye(10)[y_val]
+        y_test = np.eye(10)[y_test]
         
         # Create model with sweep config parameters
         model = FeedforwardNeuralNetwork(
@@ -334,9 +351,9 @@ def train_sweep():
         )
         
         # Train the model
-        model.train(X_train, y_train, X_test, y_test, config.epochs)
+        model.train(X_train, y_train, X_val, y_val, config.epochs)
         best_val_accs = [0.0]
-        val_acc = model.compute_accuracy(X_test, y_test)
+        val_acc = model.compute_accuracy(X_val, y_val)
         best_val_accs.append(val_acc)
         if best_val_accs[-1] >= best_val_accs[-2]:
             best_config = {
@@ -350,7 +367,7 @@ def train_sweep():
                             'weight_initialization': config.weight_initialization,
                             'activation': config.activation
                           }
-            with open('best_hyperparamters.json', 'w') as f:
+            with open('best_hyperparameters.json', 'w') as f:
                 json.dump(best_config, f)
 
 # Sweep Config
@@ -385,6 +402,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--epochs", type=int, default=10)
     parser.add_argument("-b", "--batch_size", type=int, default=4)
     parser.add_argument("-lr", "--learning_rate", type=float, default=0.1)
+    parser.add_argument("-a", "--activation", type=str, default="sigmoid", choices = ["sigmoid", "tanh", "relu"])  
     parser.add_argument("-o", "--optimizer", type=str, default="sgd", choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
     parser.add_argument("-nhl", "--num_layers", type=int, default=1)
     parser.add_argument("-sz", "--hidden_size", type=int, default=4)
@@ -403,10 +421,27 @@ if __name__ == "__main__":
         wandb.agent(sweep_id, function=train_sweep, count=args.count)
 
     else:
-        # Load dataset
-        (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
-        X_train, X_test = X_train.reshape(X_train.shape[0], -1) / 255.0, X_test.reshape(X_test.shape[0], -1) / 255.0
-        y_train, y_test = np.eye(10)[y_train], np.eye(10)[y_test]
+        # Load the original train/test split
+        (X_train_full, y_train_full), (X_test, y_test) = fashion_mnist.load_data()
+
+        # Define the validation set size (e.g., 10% of the training data)
+        val_size = 6000  # 10% of 60,000
+
+        # Split the training data into training and validation sets
+        X_train = X_train_full[:-val_size]
+        y_train = y_train_full[:-val_size]
+        X_val = X_train_full[-val_size:]
+        y_val = y_train_full[-val_size:]
+
+        # Reshape and normalize
+        X_train = X_train.reshape(X_train.shape[0], -1) / 255.0
+        X_val = X_val.reshape(X_val.shape[0], -1) / 255.0
+        X_test = X_test.reshape(X_test.shape[0], -1) / 255.0
+
+        # One-hot encode the labels
+        y_train = np.eye(10)[y_train]
+        y_val = np.eye(10)[y_val]
+        y_test = np.eye(10)[y_test]
 
         # Create a configuration object to match the structure expected by FeedforwardNeuralNetwork
         config = type('Config', (), {
@@ -416,7 +451,7 @@ if __name__ == "__main__":
             'learning_rate': args.learning_rate,
             'batch_size': args.batch_size,
             'weight_decay': 0,  # Default value
-            'activation': 'sigmoid',  # Default value
+            'activation': args.activation,  # Default value
             'weight_initialization': 'Xavier',  # Default value
             'hidden_size': args.hidden_size
         })
@@ -431,4 +466,5 @@ if __name__ == "__main__":
             epsilon=args.epsilon,
             config=config
         )
-        model.train(X_train, y_train, X_test, y_test, args.epochs)
+
+        model.train(X_train, y_train, X_val, y_val, args.epochs)
